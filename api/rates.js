@@ -5,16 +5,19 @@ module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
 
   try {
-    // GoodReturns se Gold aur Silver dono scrape karo
     const [goldResp, silverResp] = await Promise.all([
       fetch('https://www.goodreturns.in/gold-rates-in-mumbai.html', {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-IN,en;q=0.9',
         }
       }),
       fetch('https://www.goodreturns.in/silver-rates-in-mumbai.html', {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-IN,en;q=0.9',
         }
       })
     ]);
@@ -25,31 +28,55 @@ module.exports = async function handler(req, res) {
     const $g = cheerio.load(goldHtml);
     const $s = cheerio.load(silverHtml);
 
-    // GoodReturns pe 24K gold rate
+    // Gold 24K per 10g nikalo
     let goldPer10g = 0;
-    $g('.gold-silver-rate-table tbody tr').each((i, row) => {
-      if (i === 0) {
-        const cells = $g(row).find('td');
-        const rateText = $g(cells[1]).text().replace(/[^0-9.]/g, '');
-        goldPer10g = parseFloat(rateText);
-      }
+    $g('span.gold-silver-rate').each((i, el) => {
+      const text = $g(el).text().replace(/[^0-9]/g, '');
+      if (text && i === 0) goldPer10g = parseFloat(text);
     });
 
-    // Silver rate per kg
+    // Agar pehla selector kaam na kare to table try karo
+    if (!goldPer10g || goldPer10g < 1000) {
+      $g('table tbody tr').each((i, row) => {
+        if (i === 0) {
+          const tds = $g(row).find('td');
+          tds.each((j, td) => {
+            const text = $g(td).text().replace(/[^0-9]/g, '');
+            const num = parseFloat(text);
+            if (num > 50000 && num < 200000) {
+              goldPer10g = num;
+            }
+          });
+        }
+      });
+    }
+
+    // Silver per kg nikalo
     let silverPerKg = 0;
-    $s('.gold-silver-rate-table tbody tr').each((i, row) => {
-      if (i === 0) {
-        const cells = $s(row).find('td');
-        const rateText = $s(cells[1]).text().replace(/[^0-9.]/g, '');
-        silverPerKg = parseFloat(rateText);
-      }
+    $s('span.gold-silver-rate').each((i, el) => {
+      const text = $s(el).text().replace(/[^0-9]/g, '');
+      if (text && i === 0) silverPerKg = parseFloat(text);
     });
 
-    // Convert to per gram
-    const goldPerG   = goldPer10g / 10;
-    const silverPerG = silverPerKg / 1000;
+    if (!silverPerKg || silverPerKg < 10000) {
+      $s('table tbody tr').each((i, row) => {
+        if (i === 0) {
+          const tds = $s(row).find('td');
+          tds.each((j, td) => {
+            const text = $s(td).text().replace(/[^0-9]/g, '');
+            const num = parseFloat(text);
+            if (num > 50000 && num < 500000) {
+              silverPerKg = num;
+            }
+          });
+        }
+      });
+    }
 
-    if (!goldPerG || goldPerG < 1000) throw new Error('Scraping failed');
+    const goldPerG   = goldPer10g   / 10;
+    const silverPerG = silverPerKg  / 1000;
+
+    if (!goldPerG || goldPerG < 1000) throw new Error('Scraping failed — invalid gold rate');
 
     res.status(200).json({
       gold24k:  Math.round(goldPerG),
@@ -62,7 +89,9 @@ module.exports = async function handler(req, res) {
     });
 
   } catch(e) {
-    // Fallback — international rate + India duty
+    console.error('Scraping error:', e.message);
+
+    // Fallback — MetalPriceAPI
     try {
       const [fxResp, metalResp] = await Promise.all([
         fetch('https://api.frankfurter.app/latest?from=USD&to=INR'),
@@ -76,9 +105,8 @@ module.exports = async function handler(req, res) {
       const goldOzUSD   = 1 / metalData.rates.XAU;
       const silverOzUSD = 1 / metalData.rates.XAG;
 
-      // India mein: international + 15% import duty + 3% GST = x1.185
-      const goldPerG   = (goldOzUSD   * USD_INR / 31.1035) * 1.185;
-      const silverPerG = (silverOzUSD * USD_INR / 31.1035) * 1.185;
+      const goldPerG   = (goldOzUSD   * USD_INR) / 31.1035;
+      const silverPerG = (silverOzUSD * USD_INR) / 31.1035;
 
       res.status(200).json({
         gold24k:  Math.round(goldPerG),
@@ -86,7 +114,7 @@ module.exports = async function handler(req, res) {
         date: new Date().toLocaleDateString('en-IN', {
           day: '2-digit', month: 'short', year: 'numeric'
         }),
-        source:   'International + India Duty',
+        source:   'MetalPriceAPI International',
         fallback: false
       });
 
