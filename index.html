@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zakat Calculator — Ahle Sunnat | Live Mumbai Rates</title>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-arabic">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم</div>
+  <h1>Zakat Calculator</h1>
+  <p>Ahle Sunnat Wal Jamaat • Hanafi Fiqh • Sabhi Tarike • Live Mumbai Rates</p>
+  <div class="hero-badges">
+    <span class="hbadge">☪ Hanafi Method</span>
+    <span class="hbadge">📊 Live Rates</span>
+    <span class="hbadge">🔢 Step-by-Step</span>
+    <span class="hbadge">💡 Mixed Assets</span>
+  </div>
+</div>
+
+<!-- RATES -->
+<div class="rates-row">
+  <div class="rate-card gold-c">
+    <div class="rl">Sona (Gold 24K)</div>
+    <div class="rv" id="goldDisp">— /g</div>
+    <div class="rs">Mumbai • Aaj</div>
+  </div>
+  <div class="rate-card silver-c">
+    <div class="rl">Chandi (Silver)</div>
+    <div class="rv" id="silverDisp">— /g</div>
+    <div class="rs">Mumbai • Aaj</div>
+  </div>
+</div>
+<div class="rate-status">
+  <div class="sdot loading" id="sdot"></div>
+  <span id="stext">Rates fetch ho rahi hain...</span>
+  <button class="refresh-btn" style="width:auto;padding:4px 14px;margin:0;font-size:11px;" onclick="fetchRates()">↻ Refresh</button>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('basic',this)">Basic</button>
+  <button class="tab" onclick="switchTab('mixed',this)">Mixed Assets (Hanafi)</button>
+  <button class="tab" onclick="switchTab('full',this)">Poori Zakat</button>
+  <button class="tab" onclick="switchTab('info',this)">Ilm</button>
+</div>
+
+<!-- ===== TAB: BASIC ===== -->
+<div id="tab-basic">
+  <div class="card">
+    <div class="card-head">
+      <div class="card-icon green">⚖️</div>
+      <div><div class="card-title">Apna Wajan Dalein</div><div class="card-sub">Sirf sona ya sirf chandi</div></div>
+    </div>
+    <div class="input-grid">
+      <div class="field">
+        <label>Sona (Gold)</label>
+        <input type="number" id="b-gold" min="0" step="0.01" placeholder="0" oninput="calcBasic()">
+        <div class="unit-row">
+          <button class="ubtn active" onclick="setU('b-gold-u','tola',this)">Tola</button>
+          <button class="ubtn" onclick="setU('b-gold-u','gram',this)">Gram</button>
+          <button class="ubtn" onclick="setU('b-gold-u','oz',this)">Oz</button>
+        </div>
+        <span id="b-gold-u" style="display:none">tola</span>
+      </div>
+      <div class="field">
+        <label>Chandi (Silver)</label>
+        <input type="number" id="b-silver" min="0" step="0.01" placeholder="0" oninput="calcBasic()">
+        <div class="unit-row">
+          <button class="ubtn active" onclick="setU('b-silver-u','tola',this)">Tola</button>
+          <button class="ubtn" onclick="setU('b-silver-u','gram',this)">Gram</button>
+          <button class="ubtn" onclick="setU('b-silver-u','oz',this)">Oz</button>
+        </div>
+        <span id="b-silver-u" style="display:none">tola</span>
+      </div>
+    </div>
+  </div>
+  <div id="b-nisab-status" class="nisab-status wait">
+    <div class="ns-dot wait"></div>
+    <div class="ns-body wait"><div class="nt">Pehle wajan dalein...</div><div class="nd">Aapka nisab check hoga.</div></div>
+  </div>
+  <div id="b-result" class="hidden">
+    <div class="result-hero">
+      <div class="rl">AAPKI KUL ZAKAT (2.5%)</div>
+      <div class="ra" id="b-total">—</div>
+      <div class="rw" id="b-sub">—</div>
+    </div>
+    <div class="breakdown-grid">
+      <div class="bc">
+        <div class="bt">🥇 Sona</div>
+        <div class="brow"><span class="bk">Grams</span><span class="bv" id="b-gg">—</span></div>
+        <div class="brow"><span class="bk">Qeemat</span><span class="bv" id="b-gv">—</span></div>
+        <div class="brow bzrow"><span class="bk">Zakat</span><span class="bv" id="b-gz">—</span></div>
+      </div>
+      <div class="bc">
+        <div class="bt">🥈 Chandi</div>
+        <div class="brow"><span class="bk">Grams</span><span class="bv" id="b-sg">—</span></div>
+        <div class="brow"><span class="bk">Qeemat</span><span class="bv" id="b-sv">—</span></div>
+        <div class="brow bzrow"><span class="bk">Zakat</span><span class="bv" id="b-sz">—</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: MIXED (HANAFI TAQWEEN) ===== -->
+<div id="tab-mixed" class="hidden">
+  <div class="info-box gold">
+    <div class="ib-title">Hanafi Rule — Taqween (تقویم)</div>
+    Agar alag-alag se kisi ka bhi nisab poora nahi ho raha, to <strong>dono ki milki rupee value</strong> nikalo aur <strong>chandi ke nisab se compare</strong> karo. Yahi Ahle Sunnat ka masla hai.
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <div class="card-icon gold-bg">🔄</div>
+      <div><div class="card-title">Mixed Assets — Sona + Chandi</div><div class="card-sub">Gold ko Chandi mein convert karke dekhna</div></div>
+    </div>
+    <div class="input-grid">
+      <div class="field">
+        <label>Sona (Gold)</label>
+        <input type="number" id="m-gold" min="0" step="0.01" placeholder="e.g. 3" oninput="calcMixed()">
+        <div class="unit-row">
+          <button class="ubtn active" onclick="setU('m-gold-u','tola',this)">Tola</button>
+          <button class="ubtn" onclick="setU('m-gold-u','gram',this)">Gram</button>
+          <button class="ubtn" onclick="setU('m-gold-u','oz',this)">Oz</button>
+        </div>
+        <span id="m-gold-u" style="display:none">tola</span>
+      </div>
+      <div class="field">
+        <label>Chandi (Silver)</label>
+        <input type="number" id="m-silver" min="0" step="0.01" placeholder="e.g. 22" oninput="calcMixed()">
+        <div class="unit-row">
+          <button class="ubtn active" onclick="setU('m-silver-u','tola',this)">Tola</button>
+          <button class="ubtn" onclick="setU('m-silver-u','gram',this)">Gram</button>
+          <button class="ubtn" onclick="setU('m-silver-u','oz',this)">Oz</button>
+        </div>
+        <span id="m-silver-u" style="display:none">tola</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="m-steps" class="hidden">
+    <div class="sec-title">Step-by-Step Calculation</div>
+    <div class="card">
+      <div class="steps-panel" id="m-steps-body"></div>
+    </div>
+    <div id="m-nisab-status" class="nisab-status wait">
+      <div class="ns-dot wait"></div>
+      <div class="ns-body wait"><div class="nt">—</div><div class="nd">—</div></div>
+    </div>
+    <div id="m-result-box" class="hidden">
+      <div class="result-hero">
+        <div class="rl">AAPKI KUL ZAKAT (Hanafi Taqween Method)</div>
+        <div class="ra" id="m-total">—</div>
+        <div class="rw" id="m-sub">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: POORI ZAKAT ===== -->
+<div id="tab-full" class="hidden">
+  <div class="info-box green">
+    <div class="ib-title">Poori Zakat — Sabhi Assets</div>
+    Zakat sirf sone-chandi par nahi, balki <strong>cash, savings, business stock</strong> par bhi hoti hai. Neeche sabhi cheezein daalein.
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-icon gold-bg">🥇</div><div><div class="card-title">Sona (Gold)</div></div></div>
+    <div class="input-grid">
+      <div class="field"><label>Wajan</label>
+        <input type="number" id="f-gold" min="0" step="0.01" placeholder="0" oninput="calcFull()">
+        <div class="unit-row">
+          <button class="ubtn active" onclick="setU('f-gold-u','tola',this)">Tola</button>
+          <button class="ubtn" onclick="setU('f-gold-u','gram',this)">Gram</button>
+          <button class="ubtn" onclick="setU('f-gold-u','oz',this)">Oz</button>
+        </div>
+        <span id="f-gold-u" style="display:none">tola</span>
+      </div>
+      <div class="field"><label>Gold Purity</label>
+        <select id="f-gold-purity" onchange="calcFull()" style="width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:14px;font-family:'DM Sans',sans-serif;color:var(--text);background:#fff;outline:none;">
+          <option value="1">24K (Pure)</option>
+          <option value="0.9167">22K Jewellery</option>
+          <option value="0.75">18K</option>
+          <option value="0.583">14K</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-icon silver-bg">🥈</div><div><div class="card-title">Chandi (Silver)</div></div></div>
+    <div class="input-grid">
+      <div class="field"><label>Wajan</label>
+        <input type="number" id="f-silver" min="0" step="0.01" placeholder="0" oninput="calcFull()">
+        <div class="unit-row">
+          <button class="ubtn active" onclick="setU('f-silver-u','tola',this)">Tola</button>
+          <button class="ubtn" onclick="setU('f-silver-u','gram',this)">Gram</button>
+          <button class="ubtn" onclick="setU('f-silver-u','oz',this)">Oz</button>
+        </div>
+        <span id="f-silver-u" style="display:none">tola</span>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-icon green">💵</div><div><div class="card-title">Cash & Savings</div><div class="card-sub">Bank balance + haath mein paisa</div></div></div>
+    <div class="input-grid">
+      <div class="field"><label>Cash at Home (Rs.)</label><input type="number" id="f-cash" min="0" placeholder="0" oninput="calcFull()"></div>
+      <div class="field"><label>Bank Balance (Rs.)</label><input type="number" id="f-bank" min="0" placeholder="0" oninput="calcFull()"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-icon green">🏪</div><div><div class="card-title">Business & Investments</div><div class="card-sub">Agar koi business hai</div></div></div>
+    <div class="input-grid">
+      <div class="field"><label>Business Stock (Rs.)</label><input type="number" id="f-biz" min="0" placeholder="0" oninput="calcFull()"></div>
+      <div class="field"><label>Investments/Shares (Rs.)</label><input type="number" id="f-inv" min="0" placeholder="0" oninput="calcFull()"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-icon" style="background:#fff0f0;">➖</div><div><div class="card-title">Qarz (Deductions)</div><div class="card-sub">Hanafi — 12 month ka qarz minus hoga</div></div></div>
+    <div class="input-grid">
+      <div class="field"><label>Agla 12 month ka Qarz (Rs.)</label><input type="number" id="f-debt" min="0" placeholder="0" oninput="calcFull()"></div>
+    </div>
+  </div>
+
+  <div id="f-nisab-status" class="nisab-status wait">
+    <div class="ns-dot wait"></div>
+    <div class="ns-body wait"><div class="nt">Assets dalein...</div><div class="nd">Aapki total zakatable wealth calculate hogi.</div></div>
+  </div>
+  <div id="f-result" class="hidden">
+    <div class="result-hero">
+      <div class="rl">AAPKI KUL ZAKAT — POORI WEALTH PAR</div>
+      <div class="ra" id="f-total">—</div>
+      <div class="rw" id="f-sub">—</div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-icon green">📋</div><div><div class="card-title">Poora Breakdown</div></div></div>
+      <table class="conv-table" id="f-breakdown-table"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: ILM ===== -->
+<div id="tab-info" class="hidden">
+  <div class="card">
+    <div class="card-head"><div class="card-icon green">📖</div><div><div class="card-title">Zakat Kya Hai?</div></div></div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.8;">
+      Zakat Islam ke <strong>5 Arkan</strong> mein se teesra Rukn hai. Har us Muslim par farz hai jiske paas <strong>nisab se zyada maal ho</strong> aur <strong>1 lunar year (Hawl)</strong> guzar gaya ho.
+      <br><br>
+      <strong>Quran (At-Tawbah 9:103):</strong><br>
+      <span style="font-family:'Amiri',serif;font-size:15px;color:var(--gold);display:block;margin:6px 0;">"Khuz min amwalihim sadaqatan tutahhiruhum..."</span>
+      "Un ke maal mein se sadaqah lo jo unhe pak kare aur barokah de."
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-icon gold-bg">⚖️</div><div><div class="card-title">Nisab — Kya Hai?</div></div></div>
+    <table class="conv-table">
+      <tr><th>Metal</th><th>Tola</th><th>Grams</th><th>Aaj ki Value</th></tr>
+      <tr><td>Sona Nisab</td><td>7.5 tola</td><td>87.48g</td><td class="highlight" id="info-gold-nisab">—</td></tr>
+      <tr><td>Chandi Nisab</td><td>52.5 tola</td><td>612.36g</td><td class="highlight" id="info-silver-nisab">—</td></tr>
+    </table>
+    <div class="info-box green" style="margin-top:10px;margin-bottom:0;">
+      <strong>Hanafi preferred:</strong> Silver Nisab — kyunki yeh lower hai aur zyada logon par Zakat farz hoti hai, jo garibon ke haq mein hai.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-icon" style="background:rgba(201,150,58,0.12);">🔄</div><div><div class="card-title">Madhab Farq — Jewelry par Zakat?</div></div></div>
+    <table class="conv-table">
+      <tr><th>Madhab</th><th>Jewelry</th><th>Qarz Deduction</th><th>Gold+Silver Mix</th></tr>
+      <tr><td><strong>Hanafi ✅</strong></td><td>Haan, sabhi</td><td>12 month ka</td><td>Haan (Taqween)</td></tr>
+      <tr><td>Shafi'i</td><td>Worn exempt</td><td>Nahi</td><td>Nahi</td></tr>
+      <tr><td>Maliki</td><td>Worn exempt</td><td>12 month ka</td><td>Haan</td></tr>
+      <tr><td>Hanbali</td><td>Sabhi</td><td>12 month ka</td><td>Haan</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-icon green">🔢</div><div><div class="card-title">Unit Conversion Table</div></div></div>
+    <table class="conv-table">
+      <tr><th>Unit</th><th>Grams</th><th>Tola</th></tr>
+      <tr><td>1 Tola</td><td class="highlight">11.664g</td><td>1</td></tr>
+      <tr><td>1 Troy Oz</td><td class="highlight">31.103g</td><td>2.666 tola</td></tr>
+      <tr><td>1 Gram</td><td>1g</td><td class="highlight">0.0857 tola</td></tr>
+      <tr><td>Gold Nisab</td><td>87.48g</td><td class="highlight">7.5 tola</td></tr>
+      <tr><td>Silver Nisab</td><td>612.36g</td><td class="highlight">52.5 tola</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-icon green">🤲</div><div><div class="card-title">8 Mustahiqeen — Zakat Kisko Dein?</div></div></div>
+    <div class="mustahiq-grid">
+      <div class="mq"><div class="mn">1. Fuqara</div><div class="ms">Bahut gareeb log</div></div>
+      <div class="mq"><div class="mn">2. Masakeen</div><div class="ms">Zaroorat mand</div></div>
+      <div class="mq"><div class="mn">3. Amileen</div><div class="ms">Zakat workers</div></div>
+      <div class="mq"><div class="mn">4. Muallafat</div><div class="ms">Naaye Muslims</div></div>
+      <div class="mq"><div class="mn">5. Riqab</div><div class="ms">Azaadi ke liye</div></div>
+      <div class="mq"><div class="mn">6. Gharimeen</div><div class="ms">Qarzdaar log</div></div>
+      <div class="mq"><div class="mn">7. Fi Sabilillah</div><div class="ms">Allah ki raah</div></div>
+      <div class="mq"><div class="mn">8. Ibn Sabeel</div><div class="ms">Musafir/pareshaan</div></div>
+    </div>
+    <div class="info-box gold" style="margin-top:10px;margin-bottom:0;font-size:12px;">
+      📖 Surah At-Tawbah 9:60 mein in 8 logon ka zikr hai.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-icon green">📌</div><div><div class="card-title">Zaroori Baatein</div></div></div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.9;">
+      ✅ <strong>Hawl:</strong> Poora 1 lunar year maal paas raha ho.<br>
+      ✅ <strong>Niyyat:</strong> Dene se pehle niyyat zaroori hai.<br>
+      ✅ <strong>22K Jewellery:</strong> 22K rate se calculate karein.<br>
+      ✅ <strong>Zakat Ramadan mein:</strong> Afzal hai, par kisi bhi din de sakte hain.<br>
+      ❌ <strong>Parents/Children/Spouse:</strong> Inhe Zakat nahi de sakte.<br>
+      ❌ <strong>Rehne wala ghar:</strong> Ghar ki Zakat nahi hoti.<br>
+      ❌ <strong>Personal use items:</strong> Car, furniture etc. exempt hain.
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer" style="margin-top:2rem;">
+  <span class="arabic">اللَّهُمَّ تَقَبَّلْ مِنَّا</span>
+  Allah Humma Taqabbal Minna — Aye Allah, Hamare Amaal Qabool Farma 🤲<br>
+  Rates: GoodReturns.in & IBJewels.com • Fiqh: Hanafi / Ahle Sunnat Wal Jamaat<br>
+  <span style="color:#c9963a;">Yeh tool sirf rahnamai ke liye hai — kisi bhi Fiqhi masle ke liye apne Mufti se zaroor poochhein.</span><br>
+  <span class="webbears">Designed & Developed by <a href="https://webbears.in" target="_blank">WebBears.in</a></span>
+</div>
+
+</div><!-- /wrap -->
+<script src="main.js"></script>
+</body>
+</html>
