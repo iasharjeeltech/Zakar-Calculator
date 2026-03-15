@@ -1,7 +1,5 @@
 {
-  "functions": {
-    "api/rates.js": {
-      "runtime": "nodejs20.x"
-    }
-  }
+  "rewrites": [
+    { "source": "/api/rates", "destination": "/api/rates.js" }
+  ]
 }
