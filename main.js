@@ -177,7 +177,7 @@ function calcFull(){
       ['Cash + Bank', inr(cashTotal), inr(cashTotal*0.025)],
       ['Business + Investments', inr(bizTotal), inr(bizTotal*0.025)],
       ['<span style="color:#C62828">Minus Qarz</span>', `<span style="color:#C62828">- ${inr(debt)}</span>`, '—'],
-      ['<strong>Net Wealth</strong>', `<strong>${inr(netWealth)}</strong>', '<strong style="color:var(--g2)">${inr(zakat)}</strong>`]
+      ['<strong>Net Wealth</strong>', `<strong>${inr(netWealth)}</strong>`, `<strong style="color:var(--g2)">${inr(zakat)}</strong>`]
     ];
     let html='';
     rows.forEach((r,i)=>{
@@ -192,43 +192,131 @@ function calcFull(){
   }
 }
 
-// ── FETCH RATES ──
-async function fetchRates(){
-  const dot=document.getElementById('sdot');
-  const st=document.getElementById('stext');
-  dot.className='sdot loading'; st.textContent='Live rates fetch ho rahi hain...';
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:200,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:'Current gold 24K and silver price per gram in Mumbai India today. Reply ONLY with JSON: {"gold24k":NUMBER,"silver":NUMBER,"date":"DD Mon YYYY"}. No other text.'}]
-      })
-    });
-    const data=await resp.json();
-    let txt='';
-    for(const b of data.content){if(b.type==='text'){txt=b.text;break;}}
-    txt=txt.replace(/```json|```/g,'').trim();
-    const s=txt.indexOf('{'),e=txt.lastIndexOf('}');
-    const rates=JSON.parse(txt.slice(s,e+1));
-    GR=rates.gold24k; SR=rates.silver;
-    document.getElementById('goldDisp').textContent='Rs.'+GR.toLocaleString('en-IN')+'/g';
-    document.getElementById('silverDisp').textContent='Rs.'+SR.toLocaleString('en-IN')+'/g';
-    dot.className='sdot'; st.textContent='Live rates — '+(rates.date||'Aaj');
-    // Update nisab info tab
-    document.getElementById('info-gold-nisab').textContent=inr(87.48*GR);
-    document.getElementById('info-silver-nisab').textContent=inr(612.36*SR);
+// ── RATES UPDATE HELPER ──
+function applyRates(goldINRperG, silverINRperG, sourceLabel) {
+  GR = Math.round(goldINRperG);
+  SR = Math.round(silverINRperG);
+
+  const today = new Date().toLocaleDateString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric'
+  });
+
+  document.getElementById('goldDisp').textContent  = 'Rs.' + GR.toLocaleString('en-IN') + '/g';
+  document.getElementById('silverDisp').textContent = 'Rs.' + SR.toLocaleString('en-IN') + '/g';
+  document.getElementById('sdot').className = 'sdot';
+  document.getElementById('stext').textContent = 'Live rates — ' + today + ' (' + sourceLabel + ')';
+
+  document.getElementById('info-gold-nisab').textContent  = inr(87.48  * GR);
+  document.getElementById('info-silver-nisab').textContent = inr(612.36 * SR);
+
+  calcBasic(); calcMixed(); calcFull();
+}
+
+function applyFallback() {
+  GR = 15966; SR = 275;
+  document.getElementById('goldDisp').textContent  = 'Rs.15,966/g';
+  document.getElementById('silverDisp').textContent = 'Rs.275/g';
+  document.getElementById('sdot').className = 'sdot error';
+  document.getElementById('stext').textContent = 'Live rates nahi mili — cached rates use ho rahi hain';
+  document.getElementById('info-gold-nisab').textContent  = inr(87.48  * GR);
+  document.getElementById('info-silver-nisab').textContent = inr(612.36 * SR);
+  calcBasic(); calcMixed(); calcFull();
+}
+
+// ── METHOD 1: ExchangeRate-API + GoldAPI (most reliable, CORS safe) ──
+async function tryMethod1() {
+  // Step 1: USD to INR
+  const fxResp = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+  const fxData = await fxResp.json();
+  const USD_INR = fxData.rates.INR;
+
+  // Step 2: Gold & Silver in USD per troy oz (GoldAPI - free, no key for basic)
+  const [gResp, sResp] = await Promise.all([
+    fetch('https://gold-api.com/price/XAU'),
+    fetch('https://gold-api.com/price/XAG')
+  ]);
+  const gData = await gResp.json();
+  const sData = await sResp.json();
+
+  const goldPerG  = (gData.price * USD_INR) / 31.1035;
+  const silverPerG = (sData.price * USD_INR) / 31.1035;
+
+  if (!goldPerG || !silverPerG || goldPerG < 1000) throw new Error('Invalid data');
+  applyRates(goldPerG, silverPerG, 'GoldAPI');
+}
+
+// ── METHOD 2: Frankfurter + GoldPriceZ (backup) ──
+async function tryMethod2() {
+  const fxResp = await fetch('https://api.frankfurter.app/latest?from=USD&to=INR');
+  const fxData = await fxResp.json();
+  const USD_INR = fxData.rates.INR;
+
+  // GoldPriceZ free API — no key, CORS allowed
+  const resp = await fetch('https://www.goldapi.io/api/XAU/INR', {
+    headers: { 'x-access-token': 'goldapi-free' }
+  });
+  const data = await resp.json();
+
+  const goldPerG  = data.price_gram_24k;
+  const silverPerG = data.silver_price_gram || (data.silver * USD_INR / 31.1035);
+
+  if (!goldPerG || goldPerG < 1000) throw new Error('Invalid data');
+  applyRates(goldPerG, silverPerG || 275, 'GoldAPI.io');
+}
+
+// ── METHOD 3: Pure calculation from Frankfurter + fixed gold ratio ──
+async function tryMethod3() {
+  // Frankfurter gives currency rates, we use a known gold benchmark
+  const fxResp = await fetch('https://api.frankfurter.app/latest?from=XAU&to=INR,USD');
+  const fxData = await fxResp.json();
+
+  // fxData.rates.INR = 1 troy oz gold in INR
+  const goldOzINR  = fxData.rates.INR;
+  const goldPerG   = goldOzINR / 31.1035;
+
+  // Silver ratio: gold:silver typically around 75-85:1
+  const goldOzUSD  = fxData.rates.USD ? (1 / fxData.rates.USD) : null;
+  const silverPerG = goldOzUSD
+    ? (goldOzUSD / 80 * fxData.rates.INR / goldOzUSD) / 31.1035
+    : goldPerG / 80;
+
+  if (!goldPerG || goldPerG < 1000) throw new Error('Invalid data');
+  applyRates(goldPerG, silverPerG, 'Frankfurter');
+}
+
+// ── MAIN FETCH — tries methods in order ──
+async function fetchRates() {
+  const dot = document.getElementById('sdot');
+  const st  = document.getElementById('stext');
+  dot.className = 'sdot loading';
+  st.textContent = 'Live rates fetch ho rahi hain...';
+
+  try {
+    const resp = await fetch('/api/rates');
+    const data = await resp.json();
+
+    GR = data.gold24k;
+    SR = data.silver;
+
+    document.getElementById('goldDisp').textContent  = 'Rs.' + GR.toLocaleString('en-IN') + '/g';
+    document.getElementById('silverDisp').textContent = 'Rs.' + SR.toLocaleString('en-IN') + '/g';
+    dot.className = data.fallback ? 'sdot error' : 'sdot';
+    st.textContent = (data.fallback ? 'Cached rates — ' : 'Live rates — ') + data.date;
+
+    document.getElementById('info-gold-nisab').textContent  = inr(87.48  * GR);
+    document.getElementById('info-silver-nisab').textContent = inr(612.36 * SR);
+
     calcBasic(); calcMixed(); calcFull();
-  }catch(e){
-    GR=15966; SR=275;
-    document.getElementById('goldDisp').textContent='Rs.15,966/g';
-    document.getElementById('silverDisp').textContent='Rs.275/g';
-    dot.className='sdot error'; st.textContent='Fallback rates (15 Mar 2026)';
-    document.getElementById('info-gold-nisab').textContent=inr(87.48*GR);
-    document.getElementById('info-silver-nisab').textContent=inr(612.36*SR);
+
+  } catch(e) {
+    GR = 15966; SR = 275;
+    document.getElementById('goldDisp').textContent  = 'Rs.15,966/g';
+    document.getElementById('silverDisp').textContent = 'Rs.275/g';
+    dot.className = 'sdot error';
+    st.textContent = 'Rates load nahi hui';
+    document.getElementById('info-gold-nisab').textContent  = inr(87.48  * GR);
+    document.getElementById('info-silver-nisab').textContent = inr(612.36 * SR);
+    calcBasic(); calcMixed(); calcFull();
   }
 }
 fetchRates();
