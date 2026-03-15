@@ -1,4 +1,5 @@
-module.exports = async function handler(req, res) {
+// v2 - gemini live rates       <-- yeh add karo line 1 pe
+module.exports = async function handler(req, res) {   // <-- yeh line 2 ho jaayegi
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
 
